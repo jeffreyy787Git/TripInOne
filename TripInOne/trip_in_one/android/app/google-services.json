@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "225355215425",
+    "project_id": "trip-in-one",
+    "storage_bucket": "trip-in-one.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225355215425:android:86e97a4f321920a5278cc0",
+        "android_client_info": {
+          "package_name": "com.example.trip_in_one"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBk_M9KrLQ1QAA7sTiRETkcBC_NqOg5Qbg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
