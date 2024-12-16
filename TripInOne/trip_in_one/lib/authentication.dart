@@ -50,13 +50,13 @@ class _LoginPageState extends State<LoginPage> {
   bool _validateForm() {
     if (_emailController.text.isEmpty || !_emailController.text.contains('@')) {
       setState(() {
-        _errorMessage = '請輸入有效的電子郵件地址';
+        _errorMessage = 'Please enter a valid email address';
       });
       return false;
     }
     if (_passwordController.text.isEmpty || _passwordController.text.length < 6) {
       setState(() {
-        _errorMessage = '密碼長度必須至少為6個字符';
+        _errorMessage = 'Password must be at least 6 characters long';
       });
       return false;
     }
@@ -66,13 +66,13 @@ class _LoginPageState extends State<LoginPage> {
   String _getErrorMessage(String code) {
     switch (code) {
       case 'user-not-found':
-        return '找不到該用戶';
+        return 'User not found';
       case 'wrong-password':
-        return '密碼錯誤';
+        return 'Wrong password';
       case 'invalid-email':
-        return '無效的電子郵件格式';
+        return 'Invalid email format';
       default:
-        return '登入失敗：$code';
+        return 'Login failed: $code';
     }
   }
 
@@ -87,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(
-                labelText: '電子郵件',
+                labelText: 'Email',
               ),
               keyboardType: TextInputType.emailAddress,
             ),
@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
             TextField(
               controller: _passwordController,
               decoration: const InputDecoration(
-                labelText: '密碼',
+                labelText: 'Password',
               ),
               obscureText: true,
             ),
@@ -112,7 +112,7 @@ class _LoginPageState extends State<LoginPage> {
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
                     onPressed: _handleLogin,
-                    child: const Text('登入'),
+                    child: const Text('Login'),
                   ),
             TextButton(
               onPressed: () {
@@ -121,7 +121,7 @@ class _LoginPageState extends State<LoginPage> {
                   MaterialPageRoute(builder: (context) => const RegisterPage()),
                 );
               },
-              child: const Text('還沒有帳號？立即註冊'),
+              child: const Text('Don\'t have an account? Register now'),
             ),
           ],
         ),
@@ -163,7 +163,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
       Navigator.pop(context); // 返回登入頁面
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('註冊成功！請登入')),
+        const SnackBar(content: Text('Registration successful! Please login')),
       );
     } on FirebaseAuthException catch (e) {
       setState(() {
@@ -179,19 +179,19 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _validateForm() {
     if (_emailController.text.isEmpty || !_emailController.text.contains('@')) {
       setState(() {
-        _errorMessage = '請輸入有效的電子郵件地址';
+        _errorMessage = 'Please enter a valid email address';
       });
       return false;
     }
     if (_passwordController.text.isEmpty || _passwordController.text.length < 6) {
       setState(() {
-        _errorMessage = '密碼長度必須至少為6個字符';
+        _errorMessage = 'Password must be at least 6 characters long';
       });
       return false;
     }
     if (_passwordController.text != _confirmPasswordController.text) {
       setState(() {
-        _errorMessage = '兩次輸入的密碼不相符';
+        _errorMessage = 'Passwords do not match';
       });
       return false;
     }
@@ -201,13 +201,13 @@ class _RegisterPageState extends State<RegisterPage> {
   String _getErrorMessage(String code) {
     switch (code) {
       case 'email-already-in-use':
-        return '該電子郵件已被註冊';
+        return 'Email already in use';
       case 'invalid-email':
-        return '無效的電子郵件格式';
+        return 'Invalid email format';
       case 'weak-password':
-        return '密碼強度太弱';
+        return 'Password strength is too weak';
       default:
-        return '註冊失敗：$code';
+        return 'Registration failed: $code';
     }
   }
 
@@ -215,7 +215,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('註冊'),
+        title: const Text('Register'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -225,7 +225,7 @@ class _RegisterPageState extends State<RegisterPage> {
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(
-                labelText: '電子郵件',
+                labelText: 'Email',
               ),
               keyboardType: TextInputType.emailAddress,
             ),
@@ -233,7 +233,7 @@ class _RegisterPageState extends State<RegisterPage> {
             TextField(
               controller: _passwordController,
               decoration: const InputDecoration(
-                labelText: '密碼',
+                labelText: 'Password',
               ),
               obscureText: true,
             ),
@@ -241,7 +241,7 @@ class _RegisterPageState extends State<RegisterPage> {
             TextField(
               controller: _confirmPasswordController,
               decoration: const InputDecoration(
-                labelText: '確認密碼',
+                labelText: 'Confirm Password',
               ),
               obscureText: true,
             ),
@@ -258,7 +258,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
                     onPressed: _handleRegister,
-                    child: const Text('註冊'),
+                    child: const Text('Register'),
                   ),
           ],
         ),
