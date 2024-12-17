@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'geomap.dart';
 
 class TabNavigationPage extends StatefulWidget {
   const TabNavigationPage({super.key});
@@ -40,7 +41,7 @@ class _TabNavigationPageState extends State<TabNavigationPage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.map),
-            label: '2',
+            label: 'Map',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.phone),
@@ -76,7 +77,7 @@ class SecondPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text('2'));
+    return const GeoMapPage();
   }
 }
 
