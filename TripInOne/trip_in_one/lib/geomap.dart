@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'services/directions_service.dart';
 
 class GeoMapPage extends StatefulWidget {
   const GeoMapPage({super.key});
@@ -15,6 +16,9 @@ class _GeoMapPageState extends State<GeoMapPage> {
   Position? _currentPosition;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
+  final DirectionsService _directionsService = DirectionsService();
+  String? _duration;
+  String? _distance;
 
   @override
   void initState() {
@@ -71,7 +75,7 @@ class _GeoMapPageState extends State<GeoMapPage> {
     }
   }
 
-  void _addDestinationMarker(LatLng position) {
+  void _addDestinationMarker(LatLng position) async {
     setState(() {
       _markers.add(
         Marker(
@@ -81,27 +85,39 @@ class _GeoMapPageState extends State<GeoMapPage> {
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
         ),
       );
-      
-      if (_currentPosition != null) {
-        _drawRoute(
-          LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-          position,
-        );
-      }
     });
+    
+    if (_currentPosition != null) {
+      await _getDirections(
+        LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+        position,
+      );
+    }
   }
 
-  void _drawRoute(LatLng origin, LatLng destination) {
-    setState(() {
-      _polylines.add(
-        Polyline(
-          polylineId: const PolylineId('route'),
-          points: [origin, destination],
-          color: Colors.blue,
-          width: 3,
-        ),
+  Future<void> _getDirections(LatLng origin, LatLng destination) async {
+    try {
+      final directions = await _directionsService.getDirections(
+        origin: origin,
+        destination: destination,
       );
-    });
+
+      setState(() {
+        _polylines.clear();
+        _polylines.add(
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: directions['polylinePoints'],
+            color: Colors.blue,
+            width: 5,
+          ),
+        );
+        _duration = directions['duration'];
+        _distance = directions['distance'];
+      });
+    } catch (e) {
+      debugPrint('Error getting directions: $e');
+    }
   }
 
   @override
@@ -116,23 +132,42 @@ class _GeoMapPageState extends State<GeoMapPage> {
           ),
         ],
       ),
-      body: _currentPosition == null
-          ? const Center(child: CircularProgressIndicator())
-          : GoogleMap(
-              onMapCreated: _onMapCreated,
-              initialCameraPosition: CameraPosition(
-                target: LatLng(
-                  _currentPosition!.latitude,
-                  _currentPosition!.longitude,
+      body: Stack(
+        children: [
+          _currentPosition == null
+              ? const Center(child: CircularProgressIndicator())
+              : GoogleMap(
+                  onMapCreated: _onMapCreated,
+                  initialCameraPosition: CameraPosition(
+                    target: LatLng(
+                      _currentPosition!.latitude,
+                      _currentPosition!.longitude,
+                    ),
+                    zoom: 15,
+                  ),
+                  markers: _markers,
+                  polylines: _polylines,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
+                  onTap: _addDestinationMarker,
                 ),
-                zoom: 15,
+          if (_duration != null && _distance != null)
+            Positioned(
+              bottom: 16,
+              left: 16,
+              right: 16,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    'distance: $_distance\nduration: $_duration',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
               ),
-              markers: _markers,
-              polylines: _polylines,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: true,
-              onTap: _addDestinationMarker,
             ),
+        ],
+      ),
     );
   }
 }
