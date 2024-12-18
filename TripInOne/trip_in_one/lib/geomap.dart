@@ -16,7 +16,7 @@ class GeoMapPage extends StatefulWidget {
   State<GeoMapPage> createState() => _GeoMapPageState();
 }
 
-class _GeoMapPageState extends State<GeoMapPage> {
+class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
   GoogleMapController? _mapController;
   Position? _currentPosition;
   LatLng? _currentDestination;
@@ -34,10 +34,11 @@ class _GeoMapPageState extends State<GeoMapPage> {
   };
   StreamSubscription? _accelerometerSubscription;
   DateTime? _lastShakeTime;
-  static const double _shakeThreshold = 50.0;
+  static const double _shakeThreshold = 200.0;
   static const Duration _cooldownDuration = Duration(seconds: 2);
   List<double> _lastAccelerations = [];
   static const int _accelerationBufferSize = 5;
+  bool _isPageActive = true;
 
   Future<void> _getCurrentLocation() async {
     final permission = await Permission.location.request();
@@ -52,13 +53,6 @@ class _GeoMapPageState extends State<GeoMapPage> {
 
       setState(() {
         _currentPosition = position;
-        _markers.add(
-          Marker(
-            markerId: const MarkerId('current_location'),
-            position: LatLng(position.latitude, position.longitude),
-            infoWindow: const InfoWindow(title: 'Current Location'),
-          ),
-        );
       });
 
       _mapController?.animateCamera(
@@ -217,12 +211,6 @@ class _GeoMapPageState extends State<GeoMapPage> {
 
     setState(() {
       _markers = {
-        if (_currentPosition != null)
-          Marker(
-            markerId: const MarkerId('current_location'),
-            position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-            infoWindow: const InfoWindow(title: 'Current Location'),
-          ),
         if (_currentDestination != null)
           Marker(
             markerId: const MarkerId('destination'),
@@ -237,102 +225,170 @@ class _GeoMapPageState extends State<GeoMapPage> {
   }
 
   Future<void> _selectRandomPlace() async {
-    if (_currentPosition == null) return;
+    if (!mounted || !_isPageActive || _currentPosition == null) return;
 
-    String type = _showAttractions ? 'tourist_attraction' : 
-                  _showRestaurants ? 'restaurant' : 'tourist_attraction';
+    try {
+      String type = _showAttractions ? 'tourist_attraction' : 
+                    _showRestaurants ? 'restaurant' : 'tourist_attraction';
 
-    final randomPlace = await _placesService.getRandomPlace(
-      LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-      type: type,
-    );
-
-    if (randomPlace != null) {
-      final location = randomPlace['geometry']['location'];
-      final position = LatLng(location['lat'], location['lng']);
-      
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(position),
+      final randomPlace = await _placesService.getRandomPlace(
+        LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+        type: type,
       );
 
-      _addDestinationMarker(position);
+      if (!mounted || !_isPageActive) return;
 
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PlaceDetailsScreen(
-            placeId: randomPlace['place_id'],
-            placeName: randomPlace['name'],
-            placeType: type == 'tourist_attraction' ? 'attraction' : 'restaurant',
+      if (randomPlace != null) {
+        final location = randomPlace['geometry']['location'];
+        final position = LatLng(location['lat'], location['lng']);
+        
+        if (!mounted || !_isPageActive) return;
+
+        try {
+          _mapController?.animateCamera(
+            CameraUpdate.newLatLng(position),
+          );
+
+          _addDestinationMarker(position);
+        } catch (e) {
+          debugPrint('Map operation error: $e');
+          return;
+        }
+
+        if (!mounted || !_isPageActive) return;
+        
+        try {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PlaceDetailsScreen(
+                placeId: randomPlace['place_id'],
+                placeName: randomPlace['name'],
+                placeType: type == 'tourist_attraction' ? 'attraction' : 'restaurant',
+              ),
+            ),
+          );
+        } catch (e) {
+          debugPrint('Navigation cancelled: $e');
+        }
+      } else {
+        if (!mounted || !_isPageActive) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No places found nearby. Try changing filters or location.'),
           ),
-        ),
-      );
-    } else {
-      if (!mounted) return;
+        );
+      }
+    } catch (e) {
+      if (!mounted || !_isPageActive) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No places found nearby. Try changing filters or location.'),
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
         ),
       );
     }
   }
 
   void _initShakeDetection() {
-    _accelerometerSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
-      double acceleration = event.x * event.x + 
-                          event.y * event.y + 
-                          event.z * event.z;
-                          
-      _lastAccelerations.add(acceleration);
-      if (_lastAccelerations.length > _accelerationBufferSize) {
-        _lastAccelerations.removeAt(0);
-      }
-      
-      double averageAcceleration = _lastAccelerations.isEmpty 
-          ? 0 
-          : _lastAccelerations.reduce((a, b) => a + b) / _lastAccelerations.length;
-                          
-      if (averageAcceleration > _shakeThreshold) {
-        final now = DateTime.now();
-        if (_lastShakeTime == null || 
-            now.difference(_lastShakeTime!) > _cooldownDuration) {
-          _lastShakeTime = now;
-          _selectRandomPlace();
+    _accelerometerSubscription = accelerometerEventStream().listen(
+      (AccelerometerEvent event) {
+        if (!mounted || !_isPageActive) return;
+        
+        try {
+          double acceleration = event.x * event.x + 
+                              event.y * event.y + 
+                              event.z * event.z;
           
-          _lastAccelerations.clear();
+          _lastAccelerations.add(acceleration);
+          if (_lastAccelerations.length > _accelerationBufferSize) {
+            _lastAccelerations.removeAt(0);
+          }
           
-          HapticFeedback.mediumImpact();
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Searching for random location...'),
-              duration: Duration(seconds: 1),
-            ),
-          );
+          double averageAcceleration = _lastAccelerations.isEmpty 
+              ? 0 
+              : _lastAccelerations.reduce((a, b) => a + b) / _lastAccelerations.length;
+                                      
+          if (averageAcceleration > _shakeThreshold) {
+            final now = DateTime.now();
+            if (_lastShakeTime == null || 
+                now.difference(_lastShakeTime!) > _cooldownDuration) {
+              _lastShakeTime = now;
+              
+              if (!mounted || !_isPageActive) return;
+              
+              _selectRandomPlace();
+              _lastAccelerations.clear();
+              
+              HapticFeedback.mediumImpact();
+              
+              if (!mounted || !_isPageActive) return;
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Searching for a random place...'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            }
+          }
+        } catch (e) {
+          debugPrint('Shake detection error: $e');
         }
-      }
-    });
+      },
+      onError: (error) {
+        debugPrint('Accelerometer error: $error');
+      },
+      cancelOnError: false,
+    );
   }
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation().then((_) {
-      _loadNearbyPlaces();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Shake to find random location!'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-    });
+    WidgetsBinding.instance.addObserver(this);
+    _isPageActive = true;
+    _initializeMap();
     _initShakeDetection();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    _isPageActive = state == AppLifecycleState.resumed;
+  }
+
+  Future<void> _initializeMap() async {
+    if (!mounted) return;
+    try {
+      await _getCurrentLocation();
+      if (mounted && _isPageActive) {
+        await _loadNearbyPlaces();
+        if (mounted && _isPageActive) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Shake to find a random place!'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted && _isPageActive) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Initializing map error: $e')),
+        );
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _accelerometerSubscription?.cancel();
+    _mapController?.dispose();
+    _isPageActive = false;
     super.dispose();
   }
 
