@@ -5,6 +5,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'services/directions_service.dart';
 import 'services/places_service.dart';
 import 'screens/place_details_screen.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'dart:async';
+import 'package:flutter/services.dart';
 
 class GeoMapPage extends StatefulWidget {
   const GeoMapPage({super.key});
@@ -16,6 +19,7 @@ class GeoMapPage extends StatefulWidget {
 class _GeoMapPageState extends State<GeoMapPage> {
   GoogleMapController? _mapController;
   Position? _currentPosition;
+  LatLng? _currentDestination;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   final DirectionsService _directionsService = DirectionsService();
@@ -28,6 +32,12 @@ class _GeoMapPageState extends State<GeoMapPage> {
     'attractions': {},
     'restaurants': {},
   };
+  StreamSubscription? _accelerometerSubscription;
+  DateTime? _lastShakeTime;
+  static const double _shakeThreshold = 50.0;
+  static const Duration _cooldownDuration = Duration(seconds: 2);
+  List<double> _lastAccelerations = [];
+  static const int _accelerationBufferSize = 5;
 
   Future<void> _getCurrentLocation() async {
     final permission = await Permission.location.request();
@@ -268,12 +278,62 @@ class _GeoMapPageState extends State<GeoMapPage> {
     }
   }
 
+  void _initShakeDetection() {
+    _accelerometerSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
+      double acceleration = event.x * event.x + 
+                          event.y * event.y + 
+                          event.z * event.z;
+                          
+      _lastAccelerations.add(acceleration);
+      if (_lastAccelerations.length > _accelerationBufferSize) {
+        _lastAccelerations.removeAt(0);
+      }
+      
+      double averageAcceleration = _lastAccelerations.isEmpty 
+          ? 0 
+          : _lastAccelerations.reduce((a, b) => a + b) / _lastAccelerations.length;
+                          
+      if (averageAcceleration > _shakeThreshold) {
+        final now = DateTime.now();
+        if (_lastShakeTime == null || 
+            now.difference(_lastShakeTime!) > _cooldownDuration) {
+          _lastShakeTime = now;
+          _selectRandomPlace();
+          
+          _lastAccelerations.clear();
+          
+          HapticFeedback.mediumImpact();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Searching for random location...'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _getCurrentLocation().then((_) {
       _loadNearbyPlaces();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Shake to find random location!'),
+          duration: Duration(seconds: 3),
+        ),
+      );
     });
+    _initShakeDetection();
+  }
+
+  @override
+  void dispose() {
+    _accelerometerSubscription?.cancel();
+    super.dispose();
   }
 
   Widget _buildFilterChips() {
@@ -320,10 +380,6 @@ class _GeoMapPageState extends State<GeoMapPage> {
         title: const Text('Map'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.casino),
-            onPressed: _selectRandomPlace,
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadNearbyPlaces,
           ),
@@ -365,11 +421,73 @@ class _GeoMapPageState extends State<GeoMapPage> {
               left: 16,
               right: 16,
               child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    'distance: $_distance\nduration: $_duration',
-                    style: const TextStyle(fontSize: 16),
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.directions_walk, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Distance',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              Text(
+                                _distance!,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Container(
+                        height: 24,
+                        width: 1,
+                        color: Colors.grey.withOpacity(0.3),
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.access_time, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Duration',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              Text(
+                                _duration!,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
