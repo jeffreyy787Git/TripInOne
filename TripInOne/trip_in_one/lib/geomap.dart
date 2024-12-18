@@ -3,6 +3,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'services/directions_service.dart';
+import 'services/places_service.dart';
+import 'screens/place_details_screen.dart';
 
 class GeoMapPage extends StatefulWidget {
   const GeoMapPage({super.key});
@@ -19,12 +21,13 @@ class _GeoMapPageState extends State<GeoMapPage> {
   final DirectionsService _directionsService = DirectionsService();
   String? _duration;
   String? _distance;
-
-  @override
-  void initState() {
-    super.initState();
-    _getCurrentLocation();
-  }
+  final PlacesService _placesService = PlacesService();
+  bool _showAttractions = true;
+  bool _showRestaurants = false;
+  Map<String, Set<Marker>> _filteredMarkers = {
+    'attractions': {},
+    'restaurants': {},
+  };
 
   Future<void> _getCurrentLocation() async {
     final permission = await Permission.location.request();
@@ -120,12 +123,153 @@ class _GeoMapPageState extends State<GeoMapPage> {
     }
   }
 
+  Future<void> _loadNearbyPlaces() async {
+    if (_currentPosition == null) return;
+    
+    _filteredMarkers['attractions']?.clear();
+    _filteredMarkers['restaurants']?.clear();
+
+    if (_showAttractions) {
+      final attractions = await _placesService.getNearbyPlaces(
+        LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+        type: 'tourist_attraction',
+      );
+
+      for (var place in attractions) {
+        final location = place['geometry']['location'];
+        _filteredMarkers['attractions']?.add(
+          Marker(
+            markerId: MarkerId('attraction_${place['place_id']}'),
+            position: LatLng(location['lat'], location['lng']),
+            infoWindow: InfoWindow(
+              title: place['name'],
+              snippet: place['vicinity'],
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PlaceDetailsScreen(
+                      placeId: place['place_id'],
+                      placeName: place['name'],
+                      placeType: 'attraction',
+                    ),
+                  ),
+                );
+              },
+            ),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueViolet,
+            ),
+          ),
+        );
+      }
+    }
+
+    if (_showRestaurants) {
+      final restaurants = await _placesService.getNearbyPlaces(
+        LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+        type: 'restaurant',
+      );
+
+      for (var place in restaurants) {
+        final location = place['geometry']['location'];
+        _filteredMarkers['restaurants']?.add(
+          Marker(
+            markerId: MarkerId('restaurant_${place['place_id']}'),
+            position: LatLng(location['lat'], location['lng']),
+            infoWindow: InfoWindow(
+              title: place['name'],
+              snippet: place['vicinity'],
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PlaceDetailsScreen(
+                      placeId: place['place_id'],
+                      placeName: place['name'],
+                      placeType: 'restaurant',
+                    ),
+                  ),
+                );
+              },
+            ),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueOrange,
+            ),
+          ),
+        );
+      }
+    }
+
+    setState(() {
+      _markers = {
+        if (_currentPosition != null)
+          Marker(
+            markerId: const MarkerId('current_location'),
+            position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+            infoWindow: const InfoWindow(title: 'current location'),
+          ),
+        ..._filteredMarkers['attractions'] ?? {},
+        ..._filteredMarkers['restaurants'] ?? {},
+      };
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation().then((_) {
+      _loadNearbyPlaces();
+    });
+  }
+
+  Widget _buildFilterChips() {
+    return Container(
+      padding: const EdgeInsets.all(8.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Wrap(
+        spacing: 8.0,
+        children: [
+          FilterChip(
+            label: const Text('Attraction'),
+            selected: _showAttractions,
+            onSelected: (bool selected) {
+              setState(() {
+                _showAttractions = selected;
+                _loadNearbyPlaces();
+              });
+            },
+            selectedColor: Colors.purple.withOpacity(0.3),
+          ),
+          FilterChip(
+            label: const Text('Restaurant'),
+            selected: _showRestaurants,
+            onSelected: (bool selected) {
+              setState(() {
+                _showRestaurants = selected;
+                _loadNearbyPlaces();
+              });
+            },
+            selectedColor: Colors.orange.withOpacity(0.3),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Map'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadNearbyPlaces,
+          ),
           IconButton(
             icon: const Icon(Icons.my_location),
             onPressed: _getCurrentLocation,
@@ -134,23 +278,30 @@ class _GeoMapPageState extends State<GeoMapPage> {
       ),
       body: Stack(
         children: [
-          _currentPosition == null
-              ? const Center(child: CircularProgressIndicator())
-              : GoogleMap(
-                  onMapCreated: _onMapCreated,
-                  initialCameraPosition: CameraPosition(
-                    target: LatLng(
-                      _currentPosition!.latitude,
-                      _currentPosition!.longitude,
-                    ),
-                    zoom: 15,
-                  ),
-                  markers: _markers,
-                  polylines: _polylines,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
-                  onTap: _addDestinationMarker,
+          if (_currentPosition == null)
+            const Center(child: CircularProgressIndicator())
+          else
+            GoogleMap(
+              onMapCreated: _onMapCreated,
+              initialCameraPosition: CameraPosition(
+                target: LatLng(
+                  _currentPosition!.latitude,
+                  _currentPosition!.longitude,
                 ),
+                zoom: 15,
+              ),
+              markers: _markers,
+              polylines: _polylines,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: true,
+              onTap: _addDestinationMarker,
+            ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _buildFilterChips(),
+          ),
           if (_duration != null && _distance != null)
             Positioned(
               bottom: 16,

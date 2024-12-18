@@ -20,7 +20,6 @@ class DirectionsService {
       },
     );
 
-    // 解碼聚合線點
     List<LatLng> polylinePoints = [];
     if (response.data['routes'].isNotEmpty) {
       String points = response.data['routes'][0]['overview_polyline']['points'];
