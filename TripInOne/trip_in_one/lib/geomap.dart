@@ -79,7 +79,11 @@ class _GeoMapPageState extends State<GeoMapPage> {
   }
 
   void _addDestinationMarker(LatLng position) async {
+    _currentDestination = position;
     setState(() {
+      _markers.removeWhere((marker) => 
+        marker.markerId == const MarkerId('destination'));
+      
       _markers.add(
         Marker(
           markerId: const MarkerId('destination'),
@@ -207,12 +211,61 @@ class _GeoMapPageState extends State<GeoMapPage> {
           Marker(
             markerId: const MarkerId('current_location'),
             position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-            infoWindow: const InfoWindow(title: 'current location'),
+            infoWindow: const InfoWindow(title: 'Current Location'),
+          ),
+        if (_currentDestination != null)
+          Marker(
+            markerId: const MarkerId('destination'),
+            position: _currentDestination!,
+            infoWindow: const InfoWindow(title: 'Destination'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
           ),
         ..._filteredMarkers['attractions'] ?? {},
         ..._filteredMarkers['restaurants'] ?? {},
       };
     });
+  }
+
+  Future<void> _selectRandomPlace() async {
+    if (_currentPosition == null) return;
+
+    String type = _showAttractions ? 'tourist_attraction' : 
+                  _showRestaurants ? 'restaurant' : 'tourist_attraction';
+
+    final randomPlace = await _placesService.getRandomPlace(
+      LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+      type: type,
+    );
+
+    if (randomPlace != null) {
+      final location = randomPlace['geometry']['location'];
+      final position = LatLng(location['lat'], location['lng']);
+      
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLng(position),
+      );
+
+      _addDestinationMarker(position);
+
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PlaceDetailsScreen(
+            placeId: randomPlace['place_id'],
+            placeName: randomPlace['name'],
+            placeType: type == 'tourist_attraction' ? 'attraction' : 'restaurant',
+          ),
+        ),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No places found nearby. Try changing filters or location.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -266,6 +319,10 @@ class _GeoMapPageState extends State<GeoMapPage> {
       appBar: AppBar(
         title: const Text('Map'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.casino),
+            onPressed: _selectRandomPlace,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadNearbyPlaces,

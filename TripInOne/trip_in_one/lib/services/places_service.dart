@@ -51,4 +51,41 @@ class PlacesService {
       return {};
     }
   }
-} 
+
+  Future<Map<String, dynamic>?> getRandomPlace(
+    LatLng location, {
+    String type = 'tourist_attraction',
+    int initialRadius = 100,
+    int maxRadius = 5000,
+    int radiusIncrement = 100,
+  }) async {
+    int currentRadius = initialRadius;
+    
+    while (currentRadius <= maxRadius) {
+      try {
+        final response = await _dio.get(
+          _baseUrl,
+          queryParameters: {
+            'location': '${location.latitude},${location.longitude}',
+            'radius': currentRadius.toString(),
+            'type': type,
+            'key': dotenv.env['GOOGLE_MAPS_API_KEY'],
+          },
+        );
+
+        if (response.data['results'] != null && 
+            response.data['results'].isNotEmpty) {
+          final places = List<Map<String, dynamic>>.from(response.data['results']);
+          places.shuffle();
+          return places.first;
+        }
+        
+        currentRadius += radiusIncrement;
+      } catch (e) {
+        print('Error fetching random place: $e');
+        return null;
+      }
+    }
+    return null;
+  }
+}
