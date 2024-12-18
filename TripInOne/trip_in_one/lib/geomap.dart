@@ -28,9 +28,11 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
   final PlacesService _placesService = PlacesService();
   bool _showAttractions = true;
   bool _showRestaurants = false;
+  bool _showHotels = false;
   Map<String, Set<Marker>> _filteredMarkers = {
     'attractions': {},
     'restaurants': {},
+    'hotels': {},
   };
   StreamSubscription? _accelerometerSubscription;
   DateTime? _lastShakeTime;
@@ -136,6 +138,7 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
     
     _filteredMarkers['attractions']?.clear();
     _filteredMarkers['restaurants']?.clear();
+    _filteredMarkers['hotels']?.clear();
 
     if (_showAttractions) {
       final attractions = await _placesService.getNearbyPlaces(
@@ -209,6 +212,42 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
       }
     }
 
+    if (_showHotels) {
+      final hotels = await _placesService.getNearbyPlaces(
+        LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+        type: 'lodging',
+      );
+
+      for (var place in hotels) {
+        final location = place['geometry']['location'];
+        _filteredMarkers['hotels']?.add(
+          Marker(
+            markerId: MarkerId('hotel_${place['place_id']}'),
+            position: LatLng(location['lat'], location['lng']),
+            infoWindow: InfoWindow(
+              title: place['name'],
+              snippet: place['vicinity'],
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PlaceDetailsScreen(
+                      placeId: place['place_id'],
+                      placeName: place['name'],
+                      placeType: 'hotel',
+                    ),
+                  ),
+                );
+              },
+            ),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueGreen,
+            ),
+          ),
+        );
+      }
+    }
+
     setState(() {
       _markers = {
         if (_currentDestination != null)
@@ -220,6 +259,7 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
           ),
         ..._filteredMarkers['attractions'] ?? {},
         ..._filteredMarkers['restaurants'] ?? {},
+        ..._filteredMarkers['hotels'] ?? {},
       };
     });
   }
@@ -228,8 +268,16 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
     if (!mounted || !_isPageActive || _currentPosition == null) return;
 
     try {
-      String type = _showAttractions ? 'tourist_attraction' : 
-                    _showRestaurants ? 'restaurant' : 'tourist_attraction';
+      String type;
+      if (_showAttractions) {
+        type = 'tourist_attraction';
+      } else if (_showRestaurants) {
+        type = 'restaurant';
+      } else if (_showHotels) {
+        type = 'lodging';
+      } else {
+        type = 'tourist_attraction';
+      }
 
       final randomPlace = await _placesService.getRandomPlace(
         LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
@@ -423,6 +471,17 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
               });
             },
             selectedColor: Colors.orange.withOpacity(0.3),
+          ),
+          FilterChip(
+            label: const Text('Hotel'),
+            selected: _showHotels,
+            onSelected: (bool selected) {
+              setState(() {
+                _showHotels = selected;
+                _loadNearbyPlaces();
+              });
+            },
+            selectedColor: Colors.green.withOpacity(0.3),
           ),
         ],
       ),
