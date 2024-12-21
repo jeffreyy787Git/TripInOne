@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'geomap.dart';
 
 class TravelPlannerPage extends StatefulWidget {
   const TravelPlannerPage({super.key});
@@ -110,6 +112,20 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (plan.location != null)
+                              IconButton(
+                                icon: const Icon(Icons.map),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => GeoMapPage(
+                                        initialLocation: plan.location,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             IconButton(
                               icon: const Icon(Icons.edit),
                               onPressed: () => _showAddPlanDialog(plan: plan),
@@ -118,6 +134,7 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                               icon: const Icon(Icons.delete),
                               onPressed: () {
                                 setState(() {
+                                  final plans = _plans[_selectedDay] ?? [];
                                   plans.remove(plan);
                                   _plans[_selectedDay] = plans;
                                 });
@@ -138,6 +155,7 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
     final timeController = TextEditingController(text: plan?.time ?? '');
     final titleController = TextEditingController(text: plan?.title ?? '');
     final descController = TextEditingController(text: plan?.description ?? '');
+    LatLng? selectedLocation = plan?.location;
 
     showDialog(
       context: context,
@@ -166,6 +184,32 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                 ),
                 maxLines: 3,
               ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.location_on),
+                label: Text(selectedLocation != null ? 
+                  'Change Location' : 'Add Location'),
+                onPressed: () async {
+                  final result = await Navigator.push<LatLng>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const GeoMapPage(),
+                    ),
+                  );
+                  if (result != null) {
+                    selectedLocation = result;
+                  }
+                },
+              ),
+              if (selectedLocation != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    'Location selected: ${selectedLocation!.latitude.toStringAsFixed(4)}, '
+                    '${selectedLocation!.longitude.toStringAsFixed(4)}',
+                    style: const TextStyle(color: Colors.green),
+                  ),
+                ),
             ],
           ),
         ),
@@ -181,6 +225,7 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                 time: timeController.text,
                 title: titleController.text,
                 description: descController.text,
+                location: selectedLocation,
               );
 
               setState(() {
@@ -211,11 +256,13 @@ class PlanItem {
   final String time;
   final String title;
   final String description;
+  final LatLng? location;
 
   PlanItem({
     required this.id,
     required this.time,
     required this.title,
     required this.description,
+    this.location,
   });
 }

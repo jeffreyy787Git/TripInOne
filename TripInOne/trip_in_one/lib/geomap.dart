@@ -10,7 +10,12 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 class GeoMapPage extends StatefulWidget {
-  const GeoMapPage({super.key});
+  final LatLng? initialLocation;
+  
+  const GeoMapPage({
+    super.key,
+    this.initialLocation,
+  });
 
   @override
   State<GeoMapPage> createState() => _GeoMapPageState();
@@ -99,6 +104,13 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
         ),
       );
     });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tap the check icon to confirm location'),
+        duration: Duration(seconds: 2),
+      ),
+    );
     
     if (_currentPosition != null) {
       await _getDirections(
@@ -494,6 +506,13 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
       appBar: AppBar(
         title: const Text('Map'),
         actions: [
+          if (_currentDestination != null)
+            IconButton(
+              icon: const Icon(Icons.check),
+              onPressed: () {
+                Navigator.pop(context, _currentDestination);
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadNearbyPlaces,
