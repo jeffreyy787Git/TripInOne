@@ -121,6 +121,7 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                                     MaterialPageRoute(
                                       builder: (context) => GeoMapPage(
                                         initialLocation: plan.location,
+                                        isSelectingLocation: true,
                                       ),
                                     ),
                                   );
@@ -211,7 +212,9 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                     final result = await Navigator.push<LatLng>(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const GeoMapPage(),
+                        builder: (context) => GeoMapPage(
+                          isSelectingLocation: true,
+                        ),
                       ),
                     );
                     if (result != null) {

@@ -11,10 +11,12 @@ import 'package:flutter/services.dart';
 
 class GeoMapPage extends StatefulWidget {
   final LatLng? initialLocation;
+  final bool isSelectingLocation;
   
   const GeoMapPage({
     super.key,
     this.initialLocation,
+    this.isSelectingLocation = false,
   });
 
   @override
@@ -166,16 +168,40 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
             position: LatLng(location['lat'], location['lng']),
             infoWindow: InfoWindow(
               title: place['name'],
-              snippet: place['vicinity'],
+              snippet: 'Click to view details or set as destination',
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => PlaceDetailsScreen(
-                      placeId: place['place_id'],
-                      placeName: place['name'],
-                      placeType: 'attraction',
-                    ),
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(place['name']),
+                    content: const Text('What do you want to do?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PlaceDetailsScreen(
+                                placeId: place['place_id'],
+                                placeName: place['name'],
+                                placeType: 'attraction',
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('View Details'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _addDestinationMarker(
+                            LatLng(location['lat'], location['lng'])
+                          );
+                        },
+                        child: const Text('Set as Destination'),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -202,16 +228,40 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
             position: LatLng(location['lat'], location['lng']),
             infoWindow: InfoWindow(
               title: place['name'],
-              snippet: place['vicinity'],
+              snippet: 'Click to view details or set as destination',
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => PlaceDetailsScreen(
-                      placeId: place['place_id'],
-                      placeName: place['name'],
-                      placeType: 'restaurant',
-                    ),
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(place['name']),
+                    content: const Text('What do you want to do?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PlaceDetailsScreen(
+                                placeId: place['place_id'],
+                                placeName: place['name'],
+                                placeType: 'restaurant',
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('View Details'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _addDestinationMarker(
+                            LatLng(location['lat'], location['lng'])
+                          );
+                        },
+                        child: const Text('Set as Destination'),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -238,16 +288,40 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
             position: LatLng(location['lat'], location['lng']),
             infoWindow: InfoWindow(
               title: place['name'],
-              snippet: place['vicinity'],
+              snippet: 'Click to view details or set as destination',
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => PlaceDetailsScreen(
-                      placeId: place['place_id'],
-                      placeName: place['name'],
-                      placeType: 'hotel',
-                    ),
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(place['name']),
+                    content: const Text('What do you want to do?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PlaceDetailsScreen(
+                                placeId: place['place_id'],
+                                placeName: place['name'],
+                                placeType: 'hotel',
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('View Details'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _addDestinationMarker(
+                            LatLng(location['lat'], location['lng'])
+                          );
+                        },
+                        child: const Text('Set as Destination'),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -529,7 +603,7 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
       appBar: AppBar(
         title: const Text('Map'),
         actions: [
-          if (_currentDestination != null)
+          if (widget.isSelectingLocation && _currentDestination != null)
             IconButton(
               icon: const Icon(Icons.check),
               onPressed: () {
