@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'geomap.dart';
 import 'travel_planner.dart';
+import 'pages/ai_travel_planner.dart';
 
 class TabNavigationPage extends StatefulWidget {
   const TabNavigationPage({super.key});
@@ -15,8 +16,8 @@ class _TabNavigationPageState extends State<TabNavigationPage> {
 
   static const List<Widget> _pages = <Widget>[
     FirstPage(),
-    SecondPage(), 
-    ThirdPage(),
+    SecondPage(),
+    AiTravelPlannerPage(),
     FourthPage(),
     FifthPage(),
   ];
