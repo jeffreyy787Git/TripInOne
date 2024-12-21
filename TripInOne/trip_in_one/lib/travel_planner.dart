@@ -115,8 +115,8 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                             if (plan.location != null)
                               IconButton(
                                 icon: const Icon(Icons.map),
-                                onPressed: () {
-                                  Navigator.push(
+                                onPressed: () async {
+                                  final newLocation = await Navigator.push<LatLng>(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => GeoMapPage(
@@ -124,6 +124,23 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                                       ),
                                     ),
                                   );
+                                  
+                                  if (newLocation != null) {
+                                    setState(() {
+                                      final plans = _plans[_selectedDay] ?? [];
+                                      final index = plans.indexWhere((p) => p.id == plan.id);
+                                      if (index != -1) {
+                                        plans[index] = PlanItem(
+                                          id: plan.id,
+                                          time: plan.time,
+                                          title: plan.title,
+                                          description: plan.description,
+                                          location: newLocation,
+                                        );
+                                        _plans[_selectedDay] = plans;
+                                      }
+                                    });
+                                  }
                                 },
                               ),
                             IconButton(
@@ -159,93 +176,97 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(plan == null ? 'Add Plan' : 'Edit Plan'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: timeController,
-                decoration: const InputDecoration(
-                  labelText: 'Time (e.g., 09:00)',
-                ),
-              ),
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Title',
-                ),
-              ),
-              TextField(
-                controller: descController,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.location_on),
-                label: Text(selectedLocation != null ? 
-                  'Change Location' : 'Add Location'),
-                onPressed: () async {
-                  final result = await Navigator.push<LatLng>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const GeoMapPage(),
-                    ),
-                  );
-                  if (result != null) {
-                    selectedLocation = result;
-                  }
-                },
-              ),
-              if (selectedLocation != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    'Location selected: ${selectedLocation!.latitude.toStringAsFixed(4)}, '
-                    '${selectedLocation!.longitude.toStringAsFixed(4)}',
-                    style: const TextStyle(color: Colors.green),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(plan == null ? 'Add Plan' : 'Edit Plan'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: timeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Time (e.g., 09:00)',
                   ),
                 ),
-            ],
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title',
+                  ),
+                ),
+                TextField(
+                  controller: descController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.location_on),
+                  label: Text(selectedLocation != null ? 
+                    'Change Location' : 'Add Location'),
+                  onPressed: () async {
+                    final result = await Navigator.push<LatLng>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const GeoMapPage(),
+                      ),
+                    );
+                    if (result != null) {
+                      setDialogState(() {
+                        selectedLocation = result;
+                      });
+                    }
+                  },
+                ),
+                if (selectedLocation != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'Location selected: ${selectedLocation!.latitude.toStringAsFixed(4)}, '
+                      '${selectedLocation!.longitude.toStringAsFixed(4)}',
+                      style: const TextStyle(color: Colors.green),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final newPlan = PlanItem(
-                id: plan?.id ?? DateTime.now().toString(),
-                time: timeController.text,
-                title: titleController.text,
-                description: descController.text,
-                location: selectedLocation,
-              );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final newPlan = PlanItem(
+                  id: plan?.id ?? DateTime.now().toString(),
+                  time: timeController.text,
+                  title: titleController.text,
+                  description: descController.text,
+                  location: selectedLocation,
+                );
 
-              setState(() {
-                final plans = _plans[_selectedDay] ?? [];
-                if (plan != null) {
-                  final index = plans.indexWhere((p) => p.id == plan.id);
-                  if (index != -1) {
-                    plans[index] = newPlan;
+                setState(() {
+                  final plans = _plans[_selectedDay] ?? [];
+                  if (plan != null) {
+                    final index = plans.indexWhere((p) => p.id == plan.id);
+                    if (index != -1) {
+                      plans[index] = newPlan;
+                    }
+                  } else {
+                    plans.add(newPlan);
                   }
-                } else {
-                  plans.add(newPlan);
-                }
-                _plans[_selectedDay] = plans;
-              });
+                  _plans[_selectedDay] = plans;
+                });
 
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }

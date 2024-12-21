@@ -409,6 +409,19 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _isPageActive = true;
+    
+    if (widget.initialLocation != null) {
+      _currentDestination = widget.initialLocation;
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('destination'),
+          position: widget.initialLocation!,
+          infoWindow: const InfoWindow(title: 'Destination'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        ),
+      );
+    }
+    
     _initializeMap();
     _initShakeDetection();
   }
@@ -423,6 +436,16 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
     if (!mounted) return;
     try {
       await _getCurrentLocation();
+      
+      if (mounted && _isPageActive && 
+          widget.initialLocation != null && 
+          _currentPosition != null) {
+        await _getDirections(
+          LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          widget.initialLocation!,
+        );
+      }
+      
       if (mounted && _isPageActive) {
         await _loadNearbyPlaces();
         if (mounted && _isPageActive) {
