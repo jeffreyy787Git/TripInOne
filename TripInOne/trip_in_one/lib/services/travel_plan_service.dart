@@ -20,8 +20,9 @@ class TravelPlanService {
       Map<DateTime, List<PlanItem>> plans = {};
       
       for (var doc in snapshot.docs) {
-        final data = doc.data();
         final date = DateTime.parse(doc.id);
+        final normalizedDate = DateTime(date.year, date.month, date.day);
+        final data = doc.data();
         final plansList = (data['plans'] as List<dynamic>).map((plan) {
           return PlanItem(
             id: plan['id'],
@@ -37,7 +38,7 @@ class TravelPlanService {
           );
         }).toList();
         
-        plans[date] = plansList;
+        plans[normalizedDate] = plansList;
       }
       
       return plans;
@@ -48,7 +49,7 @@ class TravelPlanService {
     final userId = _auth.currentUser?.uid;
     if (userId == null) return;
 
-    final dateStr = date.toIso8601String().split('T')[0];
+    final dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
     
     await _firestore
         .collection('users')

@@ -56,6 +56,24 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
         .firstOrNull ?? [];
   }
 
+  List<PlanItem> _sortPlansByTime(List<PlanItem> plans) {
+    return List<PlanItem>.from(plans)..sort((a, b) {
+      final aTimeParts = a.time.split(':');
+      final bTimeParts = b.time.split(':');
+      
+      final aHour = int.parse(aTimeParts[0]);
+      final bHour = int.parse(bTimeParts[0]);
+      
+      if (aHour != bHour) {
+        return aHour.compareTo(bHour);
+      }
+      
+      final aMinute = int.parse(aTimeParts[1]);
+      final bMinute = int.parse(bTimeParts[1]);
+      return aMinute.compareTo(bMinute);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -134,7 +152,10 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                       }
                       final item = plans.removeAt(oldIndex);
                       plans.insert(newIndex, item);
-                      _planService.saveDayPlans(_selectedDay, plans);
+                      
+                      final sortedPlans = _sortPlansByTime(plans);
+                      _plans[_selectedDay] = sortedPlans;
+                      _planService.saveDayPlans(_selectedDay, sortedPlans);
                     });
                   },
                   children: plans.map((plan) {
@@ -167,7 +188,7 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                                   
                                   if (newLocation != null) {
                                     setState(() {
-                                      final plans = _plans[_selectedDay] ?? [];
+                                      final plans = _getPlansForSelectedDay();
                                       final index = plans.indexWhere((p) => p.id == plan.id);
                                       if (index != -1) {
                                         plans[index] = PlanItem(
@@ -177,7 +198,7 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                                           description: plan.description,
                                           location: newLocation,
                                         );
-                                        _plans[_selectedDay] = plans;
+                                        _planService.saveDayPlans(_selectedDay, plans);
                                       }
                                     });
                                   }
@@ -189,11 +210,24 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete),
-                              onPressed: () {
+                              onPressed: () async {
+                                final normalizedSelectedDay = DateTime(
+                                  _selectedDay.year,
+                                  _selectedDay.month,
+                                  _selectedDay.day,
+                                );
+                                
                                 setState(() {
-                                  final plans = _plans[_selectedDay] ?? [];
-                                  plans.remove(plan);
-                                  _plans[_selectedDay] = plans;
+                                  final plans = _getPlansForSelectedDay();
+                                  plans.removeWhere((p) => p.id == plan.id);
+                                  
+                                  if (plans.isEmpty) {
+                                    _planService.deleteDayPlans(normalizedSelectedDay);
+                                    _plans.remove(normalizedSelectedDay);
+                                  } else {
+                                    _plans[normalizedSelectedDay] = plans;
+                                    _planService.saveDayPlans(normalizedSelectedDay, plans);
+                                  }
                                 });
                               },
                             ),
@@ -209,36 +243,77 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
   }
 
   void _showAddPlanDialog({PlanItem? plan}) {
-    final timeController = TextEditingController(text: plan?.time ?? '');
+    TimeOfDay initialTime;
+    if (plan?.time != null && plan!.time.isNotEmpty) {
+      try {
+        final timeParts = plan.time.split(':');
+        initialTime = TimeOfDay(
+          hour: int.parse(timeParts[0]),
+          minute: int.parse(timeParts[1]),
+        );
+      } catch (e) {
+        initialTime = TimeOfDay.now();
+      }
+    } else {
+      initialTime = TimeOfDay.now();
+    }
+
+    final timeController = TextEditingController(
+      text: plan?.time ?? initialTime.format(context),
+    );
     final titleController = TextEditingController(text: plan?.title ?? '');
     final descController = TextEditingController(text: plan?.description ?? '');
     LatLng? selectedLocation = plan?.location;
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(plan == null ? 'Add Plan' : 'Edit Plan'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: timeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Time (e.g., 09:00)',
-                  ),
+                ListTile(
+                  leading: const Icon(Icons.access_time),
+                  title: Text(timeController.text),
+                  onTap: () async {
+                    final TimeOfDay? picked = await showTimePicker(
+                      context: context,
+                      initialTime: initialTime,
+                      builder: (BuildContext context, Widget? child) {
+                        return MediaQuery(
+                          data: MediaQuery.of(context).copyWith(
+                            alwaysUse24HourFormat: false,
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      setDialogState(() {
+                        final hour = picked.hour.toString().padLeft(2, '0');
+                        final minute = picked.minute.toString().padLeft(2, '0');
+                        timeController.text = '$hour:$minute';
+                      });
+                    }
+                  },
                 ),
+                const Divider(),
                 TextField(
                   controller: titleController,
                   decoration: const InputDecoration(
                     labelText: 'Title',
+                    icon: Icon(Icons.title),
                   ),
                 ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: descController,
                   decoration: const InputDecoration(
                     labelText: 'Description',
+                    icon: Icon(Icons.description),
                   ),
                   maxLines: 3,
                 ),
@@ -252,6 +327,7 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => GeoMapPage(
+                          initialLocation: selectedLocation,
                           isSelectingLocation: true,
                         ),
                       ),
@@ -277,16 +353,25 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () async {
+              onPressed: () {
+                if (titleController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a title')),
+                  );
+                  return;
+                }
+
                 final newPlan = PlanItem(
                   id: plan?.id ?? DateTime.now().toString(),
                   time: timeController.text,
-                  title: titleController.text,
-                  description: descController.text,
+                  title: titleController.text.trim(),
+                  description: descController.text.trim(),
                   location: selectedLocation,
                 );
 
@@ -305,16 +390,24 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                 } else {
                   plans.add(newPlan);
                 }
-
-                await _planService.saveDayPlans(normalizedSelectedDay, plans);
                 
-                setState(() {
-                  _plans[normalizedSelectedDay] = plans;
-                });
+                final sortedPlans = _sortPlansByTime(plans);
 
-                if (mounted) {
-                  Navigator.pop(context);
-                }
+                Navigator.of(dialogContext).pop();
+
+                _planService.saveDayPlans(normalizedSelectedDay, sortedPlans).then((_) {
+                  if (mounted) {
+                    setState(() {
+                      _plans[normalizedSelectedDay] = sortedPlans;
+                    });
+                  }
+                }).catchError((error) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to save plan')),
+                    );
+                  }
+                });
               },
               child: const Text('Save'),
             ),
@@ -322,20 +415,6 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
         ),
       ),
     );
-  }
-
-  void _deletePlan(PlanItem plan) {
-    setState(() {
-      final plans = _plans[_selectedDay] ?? [];
-      plans.remove(plan);
-      _plans[_selectedDay] = plans;
-      
-      if (plans.isEmpty) {
-        _planService.deleteDayPlans(_selectedDay);
-      } else {
-        _planService.saveDayPlans(_selectedDay, plans);
-      }
-    });
   }
 }
 
