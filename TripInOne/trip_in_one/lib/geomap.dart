@@ -48,6 +48,7 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
   List<double> _lastAccelerations = [];
   static const int _accelerationBufferSize = 5;
   bool _isPageActive = true;
+  String _travelMode = 'walking';
 
   Future<void> _getCurrentLocation() async {
     final permission = await Permission.location.request();
@@ -127,6 +128,7 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
       final directions = await _directionsService.getDirections(
         origin: origin,
         destination: destination,
+        travelMode: _travelMode,
       );
 
       setState(() {
@@ -522,14 +524,6 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
       
       if (mounted && _isPageActive) {
         await _loadNearbyPlaces();
-        if (mounted && _isPageActive) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Shake to find a random place!'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
       }
     } catch (e) {
       if (mounted && _isPageActive) {
@@ -601,7 +595,19 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Map'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Map'),
+            const Text(
+              'Shake to find a random place!',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
         actions: [
           if (widget.isSelectingLocation && _currentDestination != null)
             IconButton(
@@ -613,10 +619,6 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadNearbyPlaces,
-          ),
-          IconButton(
-            icon: const Icon(Icons.my_location),
-            onPressed: _getCurrentLocation,
           ),
         ],
       ),
@@ -644,7 +646,72 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
             top: 0,
             left: 0,
             right: 0,
-            child: _buildFilterChips(),
+            child: Column(
+              children: [
+                _buildFilterChips(),
+                if (_currentDestination != null)
+                  Container(
+                    margin: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ChoiceChip(
+                          label: Row(
+                            children: [
+                              const Icon(Icons.directions_walk, size: 18),
+                              const SizedBox(width: 4),
+                              const Text('Walking'),
+                            ],
+                          ),
+                          selected: _travelMode == 'walking',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _travelMode = 'walking';
+                              });
+                              if (_currentPosition != null && _currentDestination != null) {
+                                _getDirections(
+                                  LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                                  _currentDestination!,
+                                );
+                              }
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: Row(
+                            children: [
+                              const Icon(Icons.directions_car, size: 18),
+                              const SizedBox(width: 4),
+                              const Text('Driving'),
+                            ],
+                          ),
+                          selected: _travelMode == 'driving',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _travelMode = 'driving';
+                              });
+                              if (_currentPosition != null && _currentDestination != null) {
+                                _getDirections(
+                                  LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                                  _currentDestination!,
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
           if (_duration != null && _distance != null)
             Positioned(
@@ -663,7 +730,10 @@ class _GeoMapPageState extends State<GeoMapPage> with WidgetsBindingObserver {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.directions_walk, color: Colors.blue),
+                          if (_travelMode == 'walking')
+                            const Icon(Icons.directions_walk, color: Colors.blue)
+                          else
+                            const Icon(Icons.directions_car, color: Colors.blue),
                           const SizedBox(width: 8),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

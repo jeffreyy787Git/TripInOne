@@ -10,15 +10,15 @@ class DirectionsService {
   Future<Map<String, dynamic>> getDirections({
     required LatLng origin,
     required LatLng destination,
+    String travelMode = 'walking',
   }) async {
-    final response = await _dio.get(
-      _baseUrl,
-      queryParameters: {
-        'origin': '${origin.latitude},${origin.longitude}',
-        'destination': '${destination.latitude},${destination.longitude}',
-        'key': dotenv.env['GOOGLE_MAPS_API_KEY'],
-      },
-    );
+    final url = '$_baseUrl'
+        'origin=${origin.latitude},${origin.longitude}'
+        '&destination=${destination.latitude},${destination.longitude}'
+        '&mode=${travelMode == 'driving' ? 'driving' : 'walking'}'
+        '&key=${dotenv.env['GOOGLE_MAPS_API_KEY']}';
+
+    final response = await _dio.get(url);
 
     List<LatLng> polylinePoints = [];
     if (response.data['routes'].isNotEmpty) {
