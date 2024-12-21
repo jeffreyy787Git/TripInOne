@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'geomap.dart';
+import 'travel_planner.dart';
 
 class TabNavigationPage extends StatefulWidget {
   const TabNavigationPage({super.key});
@@ -68,7 +69,7 @@ class FirstPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text('Home'));
+    return const TravelPlannerPage();
   }
 }
 
