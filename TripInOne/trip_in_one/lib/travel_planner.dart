@@ -3,6 +3,8 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'geomap.dart';
+import 'services/travel_plan_service.dart';
+import 'dart:async';
 
 class TravelPlannerPage extends StatefulWidget {
   const TravelPlannerPage({super.key});
@@ -16,6 +18,43 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
   DateTime _focusedDay = DateTime.now();
   bool _showCalendar = false;
   Map<DateTime, List<PlanItem>> _plans = {};
+  final TravelPlanService _planService = TravelPlanService();
+  StreamSubscription? _planSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlans();
+  }
+
+  void _loadPlans() {
+    _planSubscription = _planService.getUserPlans().listen((plans) {
+      setState(() {
+        _plans = plans;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _planSubscription?.cancel();
+    super.dispose();
+  }
+
+  List<PlanItem> _getPlansForSelectedDay() {
+    final normalizedSelectedDay = DateTime(
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
+    );
+    
+    return _plans.entries
+        .where((entry) => entry.key.year == normalizedSelectedDay.year &&
+                         entry.key.month == normalizedSelectedDay.month &&
+                         entry.key.day == normalizedSelectedDay.day)
+        .map((entry) => entry.value)
+        .firstOrNull ?? [];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +101,7 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
   }
 
   Widget _buildPlanList() {
-    final plans = _plans[_selectedDay] ?? [];
+    final plans = _getPlansForSelectedDay();
     
     return Column(
       children: [
@@ -95,7 +134,7 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                       }
                       final item = plans.removeAt(oldIndex);
                       plans.insert(newIndex, item);
-                      _plans[_selectedDay] = plans;
+                      _planService.saveDayPlans(_selectedDay, plans);
                     });
                   },
                   children: plans.map((plan) {
@@ -242,7 +281,7 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 final newPlan = PlanItem(
                   id: plan?.id ?? DateTime.now().toString(),
                   time: timeController.text,
@@ -251,20 +290,31 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
                   location: selectedLocation,
                 );
 
-                setState(() {
-                  final plans = _plans[_selectedDay] ?? [];
-                  if (plan != null) {
-                    final index = plans.indexWhere((p) => p.id == plan.id);
-                    if (index != -1) {
-                      plans[index] = newPlan;
-                    }
-                  } else {
-                    plans.add(newPlan);
+                final normalizedSelectedDay = DateTime(
+                  _selectedDay.year,
+                  _selectedDay.month,
+                  _selectedDay.day,
+                );
+                
+                final plans = _getPlansForSelectedDay();
+                if (plan != null) {
+                  final index = plans.indexWhere((p) => p.id == plan.id);
+                  if (index != -1) {
+                    plans[index] = newPlan;
                   }
-                  _plans[_selectedDay] = plans;
+                } else {
+                  plans.add(newPlan);
+                }
+
+                await _planService.saveDayPlans(normalizedSelectedDay, plans);
+                
+                setState(() {
+                  _plans[normalizedSelectedDay] = plans;
                 });
 
-                Navigator.pop(context);
+                if (mounted) {
+                  Navigator.pop(context);
+                }
               },
               child: const Text('Save'),
             ),
@@ -272,6 +322,20 @@ class _TravelPlannerPageState extends State<TravelPlannerPage> {
         ),
       ),
     );
+  }
+
+  void _deletePlan(PlanItem plan) {
+    setState(() {
+      final plans = _plans[_selectedDay] ?? [];
+      plans.remove(plan);
+      _plans[_selectedDay] = plans;
+      
+      if (plans.isEmpty) {
+        _planService.deleteDayPlans(_selectedDay);
+      } else {
+        _planService.saveDayPlans(_selectedDay, plans);
+      }
+    });
   }
 }
 
