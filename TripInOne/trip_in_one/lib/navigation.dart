@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'geomap.dart';
-import 'travel_planner.dart';
-import 'pages/ai_travel_planner.dart';
+import 'pages/geomap.dart';
+import 'pages/travel_planner.dart';
+import 'pages/text_recognition_page.dart';
+import 'pages/settings_page.dart';
 
 class TabNavigationPage extends StatefulWidget {
   const TabNavigationPage({super.key});
@@ -17,9 +17,8 @@ class _TabNavigationPageState extends State<TabNavigationPage> {
   static const List<Widget> _pages = <Widget>[
     FirstPage(),
     SecondPage(),
-    AiTravelPlannerPage(),
+    ThirdPage(),
     FourthPage(),
-    FifthPage(),
   ];
 
   void _onItemTapped(int index) {
@@ -46,12 +45,8 @@ class _TabNavigationPageState extends State<TabNavigationPage> {
             label: 'Map',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.phone),
-            label: '3',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '4',
+            icon: Icon(Icons.translate),
+            label: 'Translate',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
@@ -88,7 +83,7 @@ class ThirdPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text('3'));
+    return const TextRecognitionPage();
   }
 }
 
@@ -97,65 +92,6 @@ class FourthPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text('4'));
-  }
-}
-
-class FifthPage extends StatelessWidget {
-  const FifthPage({super.key});
-
-  Future<void> _handleLogout(BuildContext context) async {
-    try {
-      await FirebaseAuth.instance.signOut();
-      if (context.mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Logout failed')),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.person),
-            title: const Text('Personal Information'),
-            onTap: () {
-              // 處理個人資料設置
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications),
-            title: const Text('Notification Settings'),
-            onTap: () {
-              // 處理通知設置
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.language),
-            title: const Text('Language Settings'),
-            onTap: () {
-              // 處理語言設置
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Logout', style: TextStyle(color: Colors.red)),
-            onTap: () => _handleLogout(context),
-          ),
-        ],
-      ),
-    );
+    return const SettingsPage();
   }
 }

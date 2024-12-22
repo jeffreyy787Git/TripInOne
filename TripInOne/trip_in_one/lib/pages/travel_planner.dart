@@ -3,7 +3,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'geomap.dart';
-import 'services/travel_plan_service.dart';
+import '../services/travel_plan_service.dart';
 import 'dart:async';
 
 class TravelPlannerPage extends StatefulWidget {

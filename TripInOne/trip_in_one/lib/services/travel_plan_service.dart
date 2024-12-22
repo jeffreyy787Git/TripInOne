@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../travel_planner.dart';
+import '../pages/travel_planner.dart';
 
 class TravelPlanService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
